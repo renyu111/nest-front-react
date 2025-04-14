@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Upload, Button, message, List, Card, Image, Modal, Tag, Tooltip } from 'antd';
-import { UploadOutlined, FileOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, FileImageOutlined, PlayCircleOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Upload, Button, message, List, Card, Image, Modal, Tag, Tooltip, Popconfirm } from 'antd';
+import { UploadOutlined, FileOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, FileImageOutlined, PlayCircleOutlined, FileTextOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { uploadApi } from '../api/services';
 
@@ -14,32 +14,22 @@ interface FileItem {
 }
 
 const UploadPage = () => {
-  const [fileList, setFileList] = useState<FileItem[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   // 获取文件列表
-  const { data: files, refetch } = useQuery({
+  const { data: files, refetch } = useQuery<FileItem[]>({
     queryKey: ['files'],
     queryFn: async () => {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/upload', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (!response.ok) {
-        throw new Error('获取文件列表失败');
-      }
-      const data = await response.json();
-      return data;
+      const response = await uploadApi.getFiles();
+      return response.data;
     },
   });
 
   // 上传文件
   const { mutate: uploadFile, isPending } = useMutation({
     mutationFn: async (file: File) => {
-      const response = await uploadApi.uploadFile(file);
+      const response = await uploadApi.upload(file);
       return response;
     },
     onSuccess: () => {
@@ -53,8 +43,8 @@ const UploadPage = () => {
 
   // 删除文件
   const { mutate: deleteFile } = useMutation({
-    mutationFn: async (fileId: string) => {
-      await uploadApi.deleteFile(fileId);
+    mutationFn: async (fileName: string) => {
+      await uploadApi.deleteFile(fileName);
     },
     onSuccess: () => {
       message.success('文件删除成功');
@@ -110,6 +100,11 @@ const UploadPage = () => {
   // 获取完整的文件URL
   const getFullUrl = (url: string) => {
     return `http://localhost:3001${url}`;
+  };
+
+  // 处理删除确认
+  const handleDelete = (fileName: string) => {
+    deleteFile(fileName);
   };
 
   return (
@@ -178,7 +173,17 @@ const UploadPage = () => {
                     <EyeOutlined key="preview" onClick={() => handlePreview(file)} style={{ fontSize: '16px', color: '#1890ff' }} />
                   </Tooltip>,
                   <Tooltip title="删除">
-                    <DeleteOutlined key="delete" onClick={() => deleteFile(file.fileName)} style={{ fontSize: '16px', color: '#ff4d4f' }} />
+                    <Popconfirm
+                      title="确认删除"
+                      description={`确定要删除文件 "${file.fileName}" 吗？此操作不可恢复。`}
+                      onConfirm={() => handleDelete(file.fileName)}
+                      okText="确认"
+                      cancelText="取消"
+                      okButtonProps={{ danger: true }}
+                      icon={<ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />}
+                    >
+                      <DeleteOutlined key="delete" style={{ fontSize: '16px', color: '#ff4d4f' }} />
+                    </Popconfirm>
                   </Tooltip>
                 ]}
                 cover={

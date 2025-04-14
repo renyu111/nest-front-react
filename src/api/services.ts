@@ -1,34 +1,16 @@
 import axios from 'axios';
 import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../types/auth';
 
-interface UserProfile {
-  id: string;
-  username: string;
-  avatar?: string;
-}
-
-interface Statistics {
-  totalUsers: number;
-  totalFiles: number;
-  totalStorage: number;
-  recentUploads: number;
-}
-
-interface Activity {
-  id: string;
-  type: string;
-  description: string;
-  timestamp: string;
-}
-
+// 创建 axios 实例
 const api = axios.create({
   baseURL: 'http://localhost:3001',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// 添加请求拦截器
+// 请求拦截器，添加 token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -42,9 +24,11 @@ api.interceptors.request.use(
   }
 );
 
-// 添加响应拦截器
+// 响应拦截器，处理错误
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
@@ -61,22 +45,35 @@ export const authApi = {
     api.post<RegisterResponse>('/users/register', data).then((res) => res.data),
 };
 
+// 文件上传 API
 export const uploadApi = {
-  uploadFile: (file: File) => {
+  upload: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     return api.post('/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-    }).then((res) => res.data);
+    });
   },
-  getFiles: () => api.get<UserProfile[]>('/files').then(res => res.data),
-  deleteFile: (fileId: string) => api.delete(`/files/${fileId}`).then(res => res.data),
+  getFiles: () => api.get<ImageItem[]>('/upload'),
+  deleteFile: (fileName: string) => api.delete(`/upload/${fileName}`),
 };
+
+// 添加 ImageItem 接口
+export interface ImageItem {
+  fileName: string;
+  fileType: string;
+  url: string;
+  size: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // 数据统计相关接口
 export const dashboardApi = {
   getStatistics: () => api.get<Statistics>('/dashboard/statistics').then(res => res.data),
   getRecentActivities: () => api.get<Activity[]>('/dashboard/activities').then(res => res.data),
-}; 
+};
+
+export default api; 
